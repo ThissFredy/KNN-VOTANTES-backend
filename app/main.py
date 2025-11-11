@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 import numpy as np
 import pandas as pd
 from contextlib import asynccontextmanager
-# (Asegúrate que 'model_logic.py' esté en la misma carpeta 'app')
+from typing import List
 from app.model import entrenar_modelo_al_inicio, predecir_votante
 
 # --- Variable Global para el Modelo ---
@@ -51,11 +51,23 @@ class VoterInput(BaseModel):
     social_media_hours: int = Field(..., description="Horas de redes sociales", example=1)
     trust_media: int = Field(..., description="Confianza en medios (numérico)", example=1)
     civic_participation: int = Field(..., description="Participación cívica (numérico)", example=2)
+    primary_choice: str = Field(..., description="Elección primaria (texto)", example='CAND_Azon')
+    secondary_choice: str = Field(..., description="Elección secundaria (texto)", example='CAND_Bzon')
 
 # Modelo de Datos de Salida
 class PredictionOutput(BaseModel):
     predicted_class: int
     predicted_candidate: str
+    confidence: float = Field(..., description="Confianza de la predicción ")
+
+# Modelo para un solo candidato
+class CandidateInfo(BaseModel):
+    code: int = Field(..., example=0, description="Código numérico interno del candidato")
+    name: str = Field(..., example="Candidato_A", description="Nombre del candidato")
+
+# Modelo para la lista completa de candidatos
+class CandidatesList(BaseModel):
+    candidates: List[CandidateInfo] = Field(..., description="Lista de todos los candidatos disponibles para predicción")
 
 # --- Endpoints ---
 
@@ -68,44 +80,68 @@ async def predict(data: VoterInput):
     """
     Realiza una predicción de intención de voto usando k-NN puro.
     """
-    # Chequeo de seguridad: ¿El modelo se entrenó correctamente al inicio?
     if "error" in model_artifacts:
         raise HTTPException(status_code=503, detail=f"El modelo no pudo entrenar: {model_artifacts['error']}")
     if not model_artifacts:
          raise HTTPException(status_code=503, detail="El modelo aún no está listo (entrenando).")
 
     try:
-        # --- 1. Preparar Datos de Entrada ---
-        # Convertir el Pydantic a un dict de Python
+        # --- 1. Pre-procesamiento (igual que antes) ---
         input_data = data.dict()
-        
-        # Crear el array en el orden correcto
-        votante_array = [input_data.get(col) for col in model_artifacts["feature_cols"]]
-        votante_df = pd.DataFrame([votante_array], columns=model_artifacts["feature_cols"])
-
-        # --- 2. Aplicar Pre-procesadores ---
-        # Usamos los artefactos cargados en 'model_artifacts'
+        votante_df = pd.DataFrame([input_data])
+        feature_category_maps = model_artifacts.get("feature_category_maps", {})
+        for col, category_map in feature_category_maps.items():
+            votante_df[col] = votante_df[col].map(category_map).fillna(-1).astype(int)
+        votante_df = votante_df[model_artifacts["feature_cols"]]
         votante_imputed = model_artifacts["imputer"].transform(votante_df)
-        votante_scaled = model_artifacts["scaler"].transform(votante_df)
+        votante_scaled = model_artifacts["scaler"].transform(votante_imputed)
 
-        # --- 3. Realizar Predicción ---
-        # Usamos tu función k-NN, pasándole X_train y y_train de 'model_artifacts'
-        prediction_class = predecir_votante(
+        # --- 2. Realizar Predicción (ahora devuelve una tupla) ---
+        prediction_class, prediction_confidence = predecir_votante(
             X_entrenamiento=model_artifacts["X_train"],
             y_entrenamiento=model_artifacts["y_train"],
-            nuevo_votante=votante_scaled[0], # [0] porque transform devuelve 2D
-            k=8 # k=8 hardcodeado (puedes cambiarlo)
+            nuevo_votante=votante_scaled[0],
+            k=8
         )
         
-        # --- 4. Mapear Resultado ---
-        # .get() es más seguro que acceso directo por llave
-        prediction_label = model_artifacts["target_map"].get(prediction_class, "Clase Desconocida")
+        # --- 3. Mapear Resultado (igual que antes) ---
+        prediction_label = model_artifacts["target_map"].get(prediction_class, "Candidato Desconocido")
         
+        # --- 4. Devolver la respuesta con la nueva métrica ---
         return PredictionOutput(
             predicted_class=int(prediction_class),
-            predicted_candidate=prediction_label
+            predicted_candidate=prediction_label,
+            confidence=round(prediction_confidence, 4) # Redondeamos para una mejor visualización
         )
 
     except Exception as e:
-        # Captura cualquier error durante la predicción
         raise HTTPException(status_code=400, detail=f"Error durante la predicción: {str(e)}")
+    
+@app.get("/candidates", response_model=CandidatesList, tags=["Información del Modelo"])
+async def get_available_candidates():
+    """
+    Devuelve la lista de todos los candidatos que el modelo puede predecir.
+    """
+    # Chequeo de seguridad: ¿El modelo se entrenó correctamente?
+    if "error" in model_artifacts:
+        raise HTTPException(status_code=503, detail=f"El modelo no pudo entrenar: {model_artifacts['error']}")
+    if not model_artifacts:
+         raise HTTPException(status_code=503, detail="El modelo aún no está listo (entrenando).")
+
+    # Extraemos el mapa de target que guardamos durante el entrenamiento
+    target_map = model_artifacts.get("target_map")
+    
+    if not target_map:
+        # Esto no debería pasar si el entrenamiento fue exitoso, pero es bueno manejarlo
+        raise HTTPException(status_code=404, detail="No se encontró la lista de candidatos en el modelo cargado.")
+
+    # Transformamos el diccionario {code: name} en una lista de diccionarios
+    # para que coincida con el formato de CandidateInfo
+    list_of_candidates = [
+        {"code": code, "name": name} for code, name in target_map.items()
+    ]
+    
+    # Ordenamos la lista por código para que la salida sea predecible
+    list_of_candidates.sort(key=lambda x: x["code"])
+
+    return {"candidates": list_of_candidates}
