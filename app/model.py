@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from collections import Counter
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.metrics import classification_report, accuracy_score, f1_score
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
@@ -13,6 +13,7 @@ def calcular_distancia_euclidiana(punto_a, punto_b):
     return np.sqrt(np.sum((punto_a - punto_b)**2))
 
 def predecir_votante(X_entrenamiento, y_entrenamiento, nuevo_votante, k=8):
+    #Calcula distancia euclidiana
     distancias = [
         (calcular_distancia_euclidiana(votante_entrenamiento, nuevo_votante), y_entrenamiento[i])
         for i, votante_entrenamiento in enumerate(X_entrenamiento)
@@ -104,12 +105,30 @@ def entrenar_modelo_al_inicio(file_path: str) -> dict:
         p, c = predecir_votante(X_train_prep, y_train, fila, k=8)
         preds.append(p); confs.append(c)
 
+    #Accuracy
     acc = accuracy_score(y_test, preds)
     print(f"Accuracy: {acc*100:.2f}%")
 
+    # F1-score (promedio no ponderado de F1 por clase)
+    f1_macro = f1_score(y_test, preds, average='macro', zero_division=0)
+    print(f"F1-score (macro): {f1_macro:.4f}")
+    
+    # F1-score (promedio ponderado por frecuencia de clases)
+    f1_weighted = f1_score(y_test, preds, average='weighted', zero_division=0)
+    print(f"F1-score (weighted): {f1_weighted:.4f}")
+    
     nombres = list(target_map.values())
     print(classification_report(y_test, preds, target_names=nombres))
     print(f"Confianza promedio: {np.mean(confs):.2f}")
+    
+    # Z-score de las confianzas (detectar predicciones anormales)
+    confs_array = np.array(confs)
+    media_confs = np.mean(confs_array)
+    std_confs = np.std(confs_array)
+    z_scores = np.abs((confs_array - media_confs) / std_confs) if std_confs > 0 else np.zeros_like(confs_array)
+    outliers_zscore = np.sum(z_scores > 2)  # Puntuaciones Z > 2 se consideran outliers
+    print(f"Z-score - Predicciones anómalas (|z| > 2): {outliers_zscore} de {len(confs)}")
+    print(f"Z-score - Media de confianza: {media_confs:.4f}, Std: {std_confs:.4f}")
 
     # Para depurar o servir: nombres de columnas finales
     try:
@@ -129,6 +148,14 @@ def entrenar_modelo_al_inicio(file_path: str) -> dict:
         "target_map": target_map,
         "feature_names_out": feature_names,
         "ohe_categories": ohe_categories,
+        "metrics": {
+            "accuracy": acc,
+            "f1_score_macro": f1_macro,
+            "f1_score_weighted": f1_weighted,
+            "z_score_outliers": outliers_zscore,
+            "z_score_mean": media_confs,
+            "z_score_std": std_confs
+        },
         "config": {
             "continuas": continuas,
             "ordinales": ordinales,
