@@ -39,12 +39,11 @@ app = FastAPI(
     lifespan=lifespan # Asocia el evento de inicio/apagado
 )
 
-raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
-if raw_origins == "*":
-    allowed_origins = ["*"]
-else:
-    # Remover espacios y filtrar vacíos
-    allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+allowed_origins = [
+    "http://localhost",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000"
+]
 
 app.add_middleware(
     CORSMiddleware,
