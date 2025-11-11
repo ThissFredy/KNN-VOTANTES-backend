@@ -15,9 +15,6 @@ async def lifespan(app: FastAPI):
     print("--- Evento de Inicio (Startup) ---")
     global model_artifacts
     try:
-        # Aquí ocurre la "magia": llamamos a la función de entrenamiento
-        # Asegúrate que la ruta al data/ sea correcta desde donde ejecutas uvicorn
-        # O usa una ruta absoluta. Para Docker, 'data/...' está bien.
         model_artifacts = entrenar_modelo_al_inicio(
             file_path="data/voter_intentions_3000.csv"
         )
@@ -44,7 +41,8 @@ allowed_origins = [
     "http://localhost:8000",
     "http://localhost:3000",
     "http://127.0.0.1:8000",
-    "http://127.0.0.1:3000"
+    "http://127.0.0.1:3000",
+    "https://knn-votantes-frontend.onrender.com"
 ]
 
 app.add_middleware(
