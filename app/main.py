@@ -6,8 +6,7 @@ from contextlib import asynccontextmanager
 from typing import List
 from app.model import entrenar_modelo_al_inicio, predecir_votante
 
-# --- Variable Global para el Modelo ---
-# Aquí guardaremos los artefactos (imputer, scaler, X_train, etc.)
+# En esta varible global guardaremos los artefactos (imputer, scaler, X_train, etc.)
 model_artifacts = {}
 
 # --- Evento de Inicio (Startup) ---
@@ -18,9 +17,7 @@ async def lifespan(app: FastAPI):
     print("--- Evento de Inicio (Startup) ---")
     global model_artifacts
     try:
-        # Aquí ocurre la "magia": llamamos a la función de entrenamiento
-        # Asegúrate que la ruta al data/ sea correcta desde donde ejecutas uvicorn
-        # O usa una ruta absoluta. Para Docker, 'data/...' está bien.
+        # llamamos a la función de entrenamiento
         model_artifacts = entrenar_modelo_al_inicio(
             file_path="data/voter_intentions_3000.csv"
         )
@@ -31,13 +28,13 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    # Esto se ejecuta al apagar (shutdown)
+    # Limpiamos los artefactos al apagar (shutdown)
     print("--- Evento de Apagado (Shutdown) ---")
     model_artifacts.clear()
 
 # --- Configuración de la App ---
 app = FastAPI(
-    title="API de Intención de Voto (k-NN Puro)",
+    title="API de Intención de Voto (k-NN)",
     description="API que entrena un modelo k-NN desde cero al iniciar.",
     lifespan=lifespan # Asocia el evento de inicio/apagado
 )
@@ -45,10 +42,10 @@ app = FastAPI(
 # --- Modelos de Datos (Pydantic) ---
 class VoterInput(BaseModel):
     age: int = Field(..., description="Edad del votante", example=55)
-    income_bracket: int = Field(..., description="Nivel de ingresos (numérico)", example=4)
-    party_id_strength: int = Field(..., description="Fuerza de ID de partido (numérico)", example=8)
-    tv_news_hours: int = Field(..., description="Horas de noticias de TV", example=3)
-    social_media_hours: int = Field(..., description="Horas de redes sociales", example=1)
+    job_tenure_years: int = Field(..., description="Años en el trabajo actual", example=10)
+    social_media_hours: int = Field(..., description="Horas diarias en redes sociales", example=3)
+    public_sector: int = Field(..., description="Sector público (numérico)", example=1)
+    gender: int = Field(..., description="Género (numérico)", example=2)
     trust_media: int = Field(..., description="Confianza en medios (numérico)", example=1)
     civic_participation: int = Field(..., description="Participación cívica (numérico)", example=2)
     primary_choice: str = Field(..., description="Elección primaria (texto)", example='CAND_Azon')
@@ -86,7 +83,7 @@ async def predict(data: VoterInput):
          raise HTTPException(status_code=503, detail="El modelo aún no está listo (entrenando).")
 
     try:
-        # --- 1. Pre-procesamiento (igual que antes) ---
+        # --- 1. Pre-procesamiento ---
         input_data = data.dict()
         votante_df = pd.DataFrame([input_data])
         feature_category_maps = model_artifacts.get("feature_category_maps", {})
@@ -96,7 +93,7 @@ async def predict(data: VoterInput):
         votante_imputed = model_artifacts["imputer"].transform(votante_df)
         votante_scaled = model_artifacts["scaler"].transform(votante_imputed)
 
-        # --- 2. Realizar Predicción (ahora devuelve una tupla) ---
+        # --- 2. Realizar Predicción y regresa en una tupla ---
         prediction_class, prediction_confidence = predecir_votante(
             X_entrenamiento=model_artifacts["X_train"],
             y_entrenamiento=model_artifacts["y_train"],
@@ -104,7 +101,7 @@ async def predict(data: VoterInput):
             k=8
         )
         
-        # --- 3. Mapear Resultado (igual que antes) ---
+        # --- 3. Mapear Resultado  ---
         prediction_label = model_artifacts["target_map"].get(prediction_class, "Candidato Desconocido")
         
         # --- 4. Devolver la respuesta con la nueva métrica ---
@@ -132,7 +129,6 @@ async def get_available_candidates():
     target_map = model_artifacts.get("target_map")
     
     if not target_map:
-        # Esto no debería pasar si el entrenamiento fue exitoso, pero es bueno manejarlo
         raise HTTPException(status_code=404, detail="No se encontró la lista de candidatos en el modelo cargado.")
 
     # Transformamos el diccionario {code: name} en una lista de diccionarios
