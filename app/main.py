@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import os
 from pydantic import BaseModel, Field
 import numpy as np
 import pandas as pd
@@ -6,15 +8,10 @@ from contextlib import asynccontextmanager
 from typing import List
 from app.model import entrenar_modelo_al_inicio, predecir_votante
 
-# --- Variable Global para el Modelo ---
-# Aquí guardaremos los artefactos (imputer, scaler, X_train, etc.)
 model_artifacts = {}
 
-# --- Evento de Inicio (Startup) ---
-# Usamos 'asynccontextmanager' que es la forma moderna en FastAPI
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Esto se ejecuta ANTES de que la API empiece a aceptar peticiones
     print("--- Evento de Inicio (Startup) ---")
     global model_artifacts
     try:
@@ -40,6 +37,21 @@ app = FastAPI(
     title="API de Intención de Voto (k-NN Puro)",
     description="API que entrena un modelo k-NN desde cero al iniciar.",
     lifespan=lifespan # Asocia el evento de inicio/apagado
+)
+
+raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+if raw_origins == "*":
+    allowed_origins = ["*"]
+else:
+    # Remover espacios y filtrar vacíos
+    allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- Modelos de Datos (Pydantic) ---
