@@ -8,8 +8,6 @@ from contextlib import asynccontextmanager
 from typing import List
 from app.model import entrenar_modelo_al_inicio, predecir_votante
 
-# --- Variable Global para el Modelo ---
-# Aquí guardaremos los artefactos (imputer, scaler, X_train, etc.)
 model_artifacts = {}
 
 @asynccontextmanager
@@ -17,11 +15,9 @@ async def lifespan(app: FastAPI):
     print("--- Evento de Inicio (Startup) ---")
     global model_artifacts
     try:
-        # vvvv CAMBIO IMPORTANTE vvvv
         model_artifacts = entrenar_modelo_al_inicio(
             file_path="data/voter_intentions_COMPLETED.csv"
         )
-        # ^^^^ CAMBIO IMPORTANTE ^^^^
         
         if "error" in model_artifacts:
             print(f"Error fatal durante la carga de datos: {model_artifacts['error']}")
@@ -40,7 +36,19 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="API de Intención de Voto (k-NN Puro)",
     description="API que entrena un modelo k-NN desde cero al iniciar.",
-    lifespan=lifespan # Asocia el evento de inicio/apagado
+    lifespan=lifespan
+)
+
+allowed_origins = [
+    "http://localhost", "http://localhost:3000",
+    "https://knn-votantes-frontend.onrender.com"
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- Modelos de Datos (Pydantic) ---
