@@ -2,123 +2,178 @@ import pandas as pd
 import numpy as np
 from collections import Counter
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.impute import SimpleImputer
-
-# --- Tus Funciones de k-NN (Copiadas de tu script) ---
+from sklearn.metrics import classification_report, accuracy_score, f1_score
 
 def calcular_distancia_euclidiana(punto_a, punto_b):
-    """
-    Calcula la distancia euclidiana entre dos puntos.
-    """
+    """Calcula la distancia euclidiana entre dos puntos (vectores NumPy)."""
     return np.sqrt(np.sum((punto_a - punto_b)**2))
-
 
 def predecir_votante(X_entrenamiento, y_entrenamiento, nuevo_votante, k=8):
     """
-    Predice la clase de un nuevo votante usando KNN (con k=8 por defecto).
+    Predice la clase de un nuevo votante usando k-NN manual.
+    Espera que X_entrenamiento y nuevo_votante sean arrays de NumPy.
     """
-    # Calcular distancias a todos los puntos de entrenamiento
+    # Calcula distancia euclidiana
     distancias = [
         (calcular_distancia_euclidiana(votante_entrenamiento, nuevo_votante), y_entrenamiento[i])
         for i, votante_entrenamiento in enumerate(X_entrenamiento)
     ]
-
-    # Ordenar las distancias y obtener las k más cercanas
+    
+    # Ordena y obtiene los k vecinos más cercanos
     distancias_ordenadas = sorted(distancias, key=lambda x: x[0])
-    k_vecinos_etiquetas = [etiqueta for _, etiqueta in distancias_ordenadas[:k]]
+    k_vecinos = [et for _, et in distancias_ordenadas[:k]]
+    
+    # Votación: devuelve la clase más común y su "confianza"
+    pred, conteo = Counter(k_vecinos).most_common(1)[0]
+    return pred, conteo / k
 
-    # Encontrar la clase más común
-    votacion = Counter(k_vecinos_etiquetas)
-    prediccion = votacion.most_common(1)[0][0]
 
-    return prediccion
-
-# --- Nueva Función de "Entrenamiento" ---
-
+# --- Entrenamiento del Modelo al Inicio ---
 def entrenar_modelo_al_inicio(file_path: str) -> dict:
     """
-    Esta función se ejecuta una vez al iniciar la API.
-    Carga el CSV, lo pre-procesa, y devuelve los artefactos
-    necesarios para la predicción (imputer, scaler, X_train, y_train).
+    Carga los datos YA PROCESADOS, los separa y "entrena" el modelo k-NN.
+    "Entrenar" es solo guardar los datos de entrenamiento.
+    """
+    print(f"Iniciando carga desde el dataset PROCESADO: {file_path}...")
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        print(f"ERROR: No se encontró el archivo {file_path}")
+        return {"error": f"No se encontró {file_path}"}
+    
+    # 1) Definir X (features) e y (target)
+    target_col = "intended_vote"
+    
+    if target_col not in df.columns:
+        print(f"ERROR: El target '{target_col}' no está en el CSV.")
+        return {"error": f"El target '{target_col}' no está en el CSV."}
+
+    # X es TODO menos el target. Ya está limpio y procesado.
+    X_df = df.drop(columns=[target_col])
+    
+    # Guardamos los nombres de las columnas procesadas (ej. 'ord__has_children', 'nom__primary_choice_CAND_A')
+    feature_cols = list(X_df.columns)
+    
+    # 2) Hallar y (y convertir a códigos numéricos)
+    y_labels = df[target_col].astype("category")
+    target_map = dict(enumerate(y_labels.cat.categories))
+    y = y_labels.cat.codes.values # y (array de numpy con los códigos: 0, 1, 2...)
+
+    # 3) Separar los datos para evaluación
+    X_train_df, X_test_df, y_train, y_test = train_test_split(
+        X_df, y, test_size=0.2, random_state=42, stratify=y
+    )
+
+    # 4) Convertir a NumPy para la función manual
+    # ESTOS SON LOS DATOS QUE EL MODELO USARÁ
+    X_train_np = X_train_df.values
+    X_test_np = X_test_df.values
+
+    # 5) Evaluación del KNN (Usando los datos de Test)
+    print("Iniciando evaluación del modelo KNN manual sobre datos procesados...")
+    preds, confs = [], []
+    for fila in X_test_np:
+        p, c = predecir_votante(X_train_np, y_train, fila, k=8)
+        preds.append(p); confs.append(c)
+
+    # Métricas
+    acc = accuracy_score(y_test, preds)
+    f1_macro = f1_score(y_test, preds, average='macro', zero_division=0)
+    
+    print(f"\n--- Reporte de Evaluación (k=8, datos procesados) ---")
+    print(f"Accuracy: {acc*100:.2f}%")
+    print(f"F1-score (macro): {f1_macro:.4f}")
+    
+    nombres = list(target_map.values())
+    print(classification_report(y_test, preds, target_names=nombres))
+    print("---------------------------------------------------------")
+
+    print("¡'Entrenamiento' (carga de datos) completado!")
+    
+    # 6) Devolver solo lo necesario para predecir
+    return {
+        "X_train": X_train_np,       # Los datos numéricos para comparar
+        "y_train": y_train,          # Las etiquetas de esos datos
+        "target_map": target_map,    # El mapa {0: 'CandidatoA', 1: 'CandidatoB'}
+        "feature_cols": feature_cols,# La lista de columnas procesadas que espera la API
+        "metrics": {
+            "accuracy": acc,
+            "f1_score_macro": f1_macro,
+        }
+    }
+    """
+    Carga los datos, los separa y "entrena" el modelo k-NN.
+    En k-NN, "entrenar" es solo guardar los datos de entrenamiento.
     """
     print(f"Iniciando carga y entrenamiento desde {file_path}...")
+    df = pd.read_csv(file_path)
+
+    # 1) Definir columnas para X (SOLO NUMÉRICAS) y el target (y)
+    target_col = "intended_vote"
     
-    # --- 1. Carga y Definición de Features ---
-    try:
-        df_original = pd.read_csv(file_path)
-    except FileNotFoundError:
-        print(f"Error: No se encontró el archivo en {file_path}")
-        raise
-        
-    feature_cols = [
-        'age', 'income_bracket', 'party_id_strength', 'tv_news_hours', 
-        'social_media_hours', 'trust_media', 'civic_participation'
+    # (Estas son tus 25 variables con importancia positiva que ya son numéricas)
+    numeric_cols = [
+        "undecided", "party_id_strength", "survey_confidence",
+        "civic_participation", "region", "marital_status", "public_sector",
+        "income_bracket", "urbanicity", "education", "will_turnout",
+        "tv_news_hours", "home_owner", "voted_last",
+        "employment_sector", "job_tenure_years", "social_media_hours",
+        "refused_count", "age", "household_size", "wa_groups",
+        "small_biz_owner", "trust_media", "gender", "attention_check",
     ]
-    target_col = 'intended_vote'
 
-    df_model = df_original[feature_cols + [target_col]].copy()
+    # 2) Hallar X
+    # Rellenamos NaN con 0. Es el mínimo procesamiento necesario
+    # para que la función 'calcular_distancia_euclidiana' no falle.
+    X = df[numeric_cols].fillna(0)
 
-    # --- 2. Pre-procesamiento de Datos ---
-    print("Pre-procesando datos...")
-    
-    # Limpiar el target (y)
-    df_model = df_model[df_model[target_col] != 'Undecided']
-    df_model = df_model.dropna(subset=[target_col])
+    # 3) Hallar y
+    y_labels = df[target_col].astype("category")
+    target_map = dict(enumerate(y_labels.cat.categories))
+    y = y_labels.cat.codes.values # y (array de numpy con los códigos: 0, 1, 2...)
 
-    # Convertir el target a números y guardar el mapa
-    target_labels = df_model[target_col].astype('category')
-    # Convertimos el mapa de categorías a un dict estándar
-    target_map = dict(enumerate(target_labels.cat.categories))
-    y = target_labels.cat.codes.values
-
-    # Separar Features (X)
-    X = df_model[feature_cols]
-
-    # --- 3. División de Datos (Correcta) ---
-    # Dividimos ANTES de imputar/escalar para evitar "data leakage"
-    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+    # 4) Separar los datos
+    X_train_df, X_test_df, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # --- 4. Crear y "Entrenar" Pre-procesadores ---
-    # 4.1. Imputador: Se ajusta (fit) SOLO con X_train_raw
-    imputer = SimpleImputer(strategy='median')
-    imputer.fit(X_train_raw)
+    # 5) Convertir a NumPy para la función manual (es más rápido)
+    # k-NN "almacena" estos datos para la predicción.
+    X_train_np = X_train_df.values
+    X_test_np = X_test_df.values
+
+    # -------------------------------
+    # 6) Evaluación del KNN (Usando los datos de Test)
+    # -------------------------------
+    print("Iniciando evaluación del modelo KNN manual...")
+    preds, confs = [], []
+    for fila in X_test_np:
+        # Usamos los datos de "entrenamiento" para predecir cada fila de "test"
+        p, c = predecir_votante(X_train_np, y_train, fila, k=8)
+        preds.append(p); confs.append(c)
+
+    # Métricas
+    acc = accuracy_score(y_test, preds)
+    f1_macro = f1_score(y_test, preds, average='macro', zero_division=0)
     
-    # Transformamos X_train (y X_test para evaluación)
-    X_train_imputed = imputer.transform(X_train_raw)
-    X_test_imputed = imputer.transform(X_test_raw)
-
-    # 4.2. Escalador: Se ajusta (fit) SOLO con X_train_imputed
-    scaler = MinMaxScaler()
-    scaler.fit(X_train_imputed)
+    print(f"\n--- Reporte de Evaluación (k=8, sin preprocesamiento) ---")
+    print(f"Accuracy: {acc*100:.2f}%")
+    print(f"F1-score (macro): {f1_macro:.4f}")
     
-    # Transformamos X_train (y X_test para evaluación)
-    X_train_scaled = scaler.transform(X_train_imputed)
-    X_test_scaled = scaler.transform(X_test_imputed)
+    nombres = list(target_map.values())
+    print(classification_report(y_test, preds, target_names=nombres))
+    print("---------------------------------------------------------")
 
-    print("Pre-procesadores (imputer, scaler) ajustados.")
-
-    # --- 5. (Opcional) Evaluación del Modelo ---
-    print(f"Evaluando el modelo k-NN (k=8) con los datos de test...")
-    predicciones = []
-    for votante_prueba in X_test_scaled:
-        pred = predecir_votante(X_train_scaled, y_train, votante_prueba, k=8)
-        predicciones.append(pred)
-
-    aciertos = np.sum(predicciones == y_test)
-    precision = aciertos / len(y_test)
-    print(f"Precisión (Accuracy) del modelo: {precision * 100:.2f}%")
-
-    # --- 6. Devolver Artefactos ---
-    # Devolvemos todo lo que la API necesita para predecir
-    print("¡Entrenamiento completado! Modelo listo.")
+    print("¡'Entrenamiento' (carga de datos) completado!")
+    
+    # 7) Devolver solo lo necesario para predecir
     return {
-        "imputer": imputer,
-        "scaler": scaler,
-        "X_train": X_train_scaled, # El X_train escalado
-        "y_train": y_train,        # El y_train
-        "target_map": target_map,
-        "feature_cols": feature_cols
+        "X_train": X_train_np,       # Los datos numéricos para comparar
+        "y_train": y_train,          # Las etiquetas de esos datos
+        "target_map": target_map,    # El mapa {0: 'CandidatoA', 1: 'CandidatoB'}
+        "numeric_cols": numeric_cols,# La lista de columnas que espera la API
+        "metrics": {                 # Métricas de evaluación
+            "accuracy": acc,
+            "f1_score_macro": f1_macro,
+        }
     }

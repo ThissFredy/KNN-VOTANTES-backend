@@ -5,8 +5,11 @@ from pydantic import BaseModel, Field
 import numpy as np
 import pandas as pd
 from contextlib import asynccontextmanager
+# (Asegúrate que 'model_logic.py' esté en la misma carpeta 'app')
 from app.model import entrenar_modelo_al_inicio, predecir_votante
 
+# --- Variable Global para el Modelo ---
+# Aquí guardaremos los artefactos (imputer, scaler, X_train, etc.)
 model_artifacts = {}
 
 @asynccontextmanager
@@ -14,110 +17,160 @@ async def lifespan(app: FastAPI):
     print("--- Evento de Inicio (Startup) ---")
     global model_artifacts
     try:
-        # Aquí ocurre la "magia": llamamos a la función de entrenamiento
-        # Asegúrate que la ruta al data/ sea correcta desde donde ejecutas uvicorn
-        # O usa una ruta absoluta. Para Docker, 'data/...' está bien.
+        # vvvv CAMBIO IMPORTANTE vvvv
         model_artifacts = entrenar_modelo_al_inicio(
-            file_path="data/voter_intentions_3000.csv"
+            file_path="data/voter_intentions_COMPLETED.csv"
         )
-        print("--- Modelo entrenado y cargado en memoria. API lista. ---")
+        # ^^^^ CAMBIO IMPORTANTE ^^^^
+        
+        if "error" in model_artifacts:
+            print(f"Error fatal durante la carga de datos: {model_artifacts['error']}")
+        else:
+            print("--- Modelo (datos procesados) cargado en memoria. API lista. ---")
+            
     except Exception as e:
-        print(f"Error fatal durante el entrenamiento al inicio: {e}")
-        model_artifacts = {"error": str(e)} # Guardar error para reportarlo
+        print(f"Excepción fatal durante el startup: {e}")
+        model_artifacts = {"error": str(e)}
     
     yield
     
-    # Esto se ejecuta al apagar (shutdown)
     print("--- Evento de Apagado (Shutdown) ---")
     model_artifacts.clear()
 
-# --- Configuración de la App ---
 app = FastAPI(
     title="API de Intención de Voto (k-NN Puro)",
     description="API que entrena un modelo k-NN desde cero al iniciar.",
     lifespan=lifespan # Asocia el evento de inicio/apagado
 )
 
-allowed_origins = [
-    "http://localhost",
-    "http://localhost:8000",
-    "http://localhost:3000",
-    "http://127.0.0.1:8000",
-    "http://127.0.0.1:3000"
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # --- Modelos de Datos (Pydantic) ---
 class VoterInput(BaseModel):
-    age: int = Field(..., description="Edad del votante", example=55)
-    income_bracket: int = Field(..., description="Nivel de ingresos (numérico)", example=4)
-    party_id_strength: int = Field(..., description="Fuerza de ID de partido (numérico)", example=8)
-    tv_news_hours: int = Field(..., description="Horas de noticias de TV", example=3)
-    social_media_hours: int = Field(..., description="Horas de redes sociales", example=1)
-    trust_media: int = Field(..., description="Confianza en medios (numérico)", example=1)
-    civic_participation: int = Field(..., description="Participación cívica (numérico)", example=2)
+    # Asumo que tu script les puso prefijo 'ord__'
+    ord__has_children: float = Field(..., example=1.0)
+    ord__home_owner: float = Field(..., example=0.0)
+    ord__public_sector: float = Field(..., example=1.0)
+    ord__union_member: float = Field(..., example=0.0)
+    
+    # Asumo prefijo 'nom__' y 10 candidatos para 'primary_choice'
+    nom__primary_choice_CAND_Azon: float = Field(..., example=1.0)
+    nom__primary_choice_CAND_Boreal: float = Field(..., example=0.0)
+    nom__primary_choice_CAND_Civico: float = Field(..., example=0.0)
+    nom__primary_choice_CAND_Demetra: float = Field(..., example=0.0)
+    nom__primary_choice_CAND_Electra: float = Field(..., example=0.0)
+    nom__primary_choice_CAND_Frontera: float = Field(..., example=0.0)
+    nom__primary_choice_CAND_Gaia: float = Field(..., example=0.0)
+    nom__primary_choice_CAND_Halley: float = Field(..., example=0.0)
+    nom__primary_choice_CAND_Icaro: float = Field(..., example=0.0)
+    nom__primary_choice_CAND_Jade: float = Field(..., example=0.0)
+        
+    class Config:
+        schema_extra = {
+            "example": {
+                "ord__has_children": 1.0,
+                "ord__home_owner": 0.0,
+                "ord__public_sector": 1.0,
+                "ord__union_member": 0.0,
+                "nom__primary_choice_CAND_Azon": 0.0,
+                "nom__primary_choice_CAND_Boreal": 0.0,
+                "nom__primary_choice_CAND_Civico": 0.0,
+                "nom__primary_choice_CAND_Demetra": 0.0,
+                "nom__primary_choice_CAND_Electra": 0.0,
+                "nom__primary_choice_CAND_Frontera": 0.0,
+                "nom__primary_choice_CAND_Gaia": 1.0,
+                "nom__primary_choice_CAND_Halley": 0.0,
+                "nom__primary_choice_CAND_Icaro": 0.0,
+                "nom__primary_choice_CAND_Jade": 0.0
+            }
+        }
 
 # Modelo de Datos de Salida
 class PredictionOutput(BaseModel):
     predicted_class: int
     predicted_candidate: str
+    confidence: float = Field(..., description="Confianza de la predicción")
 
-# --- Endpoints ---
+# (Dejamos los modelos CandidateInfo y CandidatesList como estaban)
+class CandidateInfo(BaseModel):
+    code: int = Field(..., example=0)
+    name: str = Field(..., example="Candidato_A")
+
+class CandidatesList(BaseModel):
+    candidates: List[CandidateInfo]
+
+
+# * --- Endpoints ---
 
 @app.get("/")
 async def root():
     return {"message": "¡Bienvenido! La API está corriendo."}
 
+
 @app.post("/predict", response_model=PredictionOutput)
 async def predict(data: VoterInput):
     """
-    Realiza una predicción de intención de voto usando k-NN puro.
+    Realiza una predicción de k-NN usando datos YA PROCESADOS.
     """
-    # Chequeo de seguridad: ¿El modelo se entrenó correctamente al inicio?
     if "error" in model_artifacts:
-        raise HTTPException(status_code=503, detail=f"El modelo no pudo entrenar: {model_artifacts['error']}")
-    if not model_artifacts:
-         raise HTTPException(status_code=503, detail="El modelo aún no está listo (entrenando).")
+        raise HTTPException(status_code=503, detail=f"El modelo no pudo cargar: {model_artifacts['error']}")
+    
+    # 1. Validar que los artefactos NUEVOS estén cargados
+    X_train = model_artifacts.get("X_train")
+    y_train = model_artifacts.get("y_train")
+    target_map = model_artifacts.get("target_map")
+    
+    feature_cols = model_artifacts.get("feature_cols") # La lista de columnas procesadas
+    
+    if not all([X_train is not None, y_train is not None, target_map, feature_cols]):
+         raise HTTPException(status_code=503, detail="El modelo o sus artefactos no están listos.")
 
     try:
-        # --- 1. Preparar Datos de Entrada ---
-        # Convertir el Pydantic a un dict de Python
-        input_data = data.dict()
+        # --- Preparar datos de entrada ---
         
-        # Crear el array en el orden correcto
-        votante_array = [input_data.get(col) for col in model_artifacts["feature_cols"]]
-        votante_df = pd.DataFrame([votante_array], columns=model_artifacts["feature_cols"])
+        input_data = data.model_dump() if hasattr(data, 'model_dump') else data.dict()
+        votante_df = pd.DataFrame([input_data])
+        votante_df_ordered = votante_df[feature_cols]
+        
 
-        # --- 2. Aplicar Pre-procesadores ---
-        # Usamos los artefactos cargados en 'model_artifacts'
-        votante_imputed = model_artifacts["imputer"].transform(votante_df)
-        votante_scaled = model_artifacts["scaler"].transform(votante_df)
+        votante_np = votante_df_ordered.values[0]
 
-        # --- 3. Realizar Predicción ---
-        # Usamos tu función k-NN, pasándole X_train y y_train de 'model_artifacts'
-        prediction_class = predecir_votante(
-            X_entrenamiento=model_artifacts["X_train"],
-            y_entrenamiento=model_artifacts["y_train"],
-            nuevo_votante=votante_scaled[0], # [0] porque transform devuelve 2D
-            k=8 # k=8 hardcodeado (puedes cambiarlo)
+
+
+        prediction_class, prediction_confidence = predecir_votante(
+            X_entrenamiento=X_train,
+            y_entrenamiento=y_train,
+            nuevo_votante=votante_np,
+            k=8 
         )
         
-        # --- 4. Mapear Resultado ---
-        # .get() es más seguro que acceso directo por llave
-        prediction_label = model_artifacts["target_map"].get(prediction_class, "Clase Desconocida")
+        prediction_label = target_map.get(prediction_class, "Candidato Desconocido")
         
+        # --- 5. Devolver la respuesta ---
         return PredictionOutput(
             predicted_class=int(prediction_class),
-            predicted_candidate=prediction_label
+            predicted_candidate=prediction_label,
+            confidence=round(prediction_confidence, 4)
         )
 
     except Exception as e:
-        # Captura cualquier error durante la predicción
         raise HTTPException(status_code=400, detail=f"Error durante la predicción: {str(e)}")
+
+
+@app.get("/candidates", response_model=CandidatesList, tags=["Información del Modelo"])
+async def get_available_candidates():
+    """
+    Devuelve la lista de todos los candidatos que el modelo puede predecir.
+    """
+    if "error" in model_artifacts:
+        raise HTTPException(status_code=503, detail=f"El modelo no pudo cargar: {model_artifacts['error']}")
+
+    target_map = model_artifacts.get("target_map")
+    
+    if not target_map:
+        raise HTTPException(status_code=404, detail="No se encontró la lista de candidatos en el modelo cargado.")
+
+    list_of_candidates = [
+        {"code": code, "name": name} for code, name in target_map.items()
+    ]
+    list_of_candidates.sort(key=lambda x: x["code"])
+
+    return {"candidates": list_of_candidates}
