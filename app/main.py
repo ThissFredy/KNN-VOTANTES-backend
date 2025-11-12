@@ -62,6 +62,7 @@ class VoterInput(BaseModel):
     gender: int = Field(..., description="Género (numérico)", example=2)
     job_tenure_years: int = Field(..., description="Años en el trabajo actual", example=10)
     social_media_hours: int = Field(..., description="Horas diarias en redes sociales", example=3)
+    undecided: int = Field(..., description="Esta persona está indecisa", example=1)
 
 
 
