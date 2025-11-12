@@ -44,9 +44,9 @@ def entrenar_modelo_al_inicio(file_path: str) -> dict:
     df = df[df[target_col] != "Undecided"]
 
     # 3) Definir tipos por bloque para preprocesamiento
-    continuas = ["age", "job_tenure_years", "social_media_hours"]
-    ordinales = ["public_sector", "gender", "trust_media", "civic_participation"]
-    nominales_texto = ["primary_choice", "secondary_choice"]
+    continuas = ["job_tenure_years", "social_media_hours"]
+    ordinales = ["public_sector", "gender", "undecided"]
+    nominales_texto = ["primary_choice"]
 
     # 4) Construir X/y
     X = df[base_cols].copy()
