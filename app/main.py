@@ -41,15 +41,13 @@ app = FastAPI(
 
 # --- Modelos de Datos (Pydantic) ---
 class VoterInput(BaseModel):
-    age: int = Field(..., description="Edad del votante", example=55)
-    job_tenure_years: int = Field(..., description="Años en el trabajo actual", example=10)
-    social_media_hours: int = Field(..., description="Horas diarias en redes sociales", example=3)
+    primary_choice: str = Field(..., description="Elección primaria (texto)", example='CAND_Azon')
     public_sector: int = Field(..., description="Sector público (numérico)", example=1)
     gender: int = Field(..., description="Género (numérico)", example=2)
-    trust_media: int = Field(..., description="Confianza en medios (numérico)", example=1)
-    civic_participation: int = Field(..., description="Participación cívica (numérico)", example=2)
-    primary_choice: str = Field(..., description="Elección primaria (texto)", example='CAND_Azon')
-    secondary_choice: str = Field(..., description="Elección secundaria (texto)", example='CAND_Bzon')
+    job_tenure_years: int = Field(..., description="Años en el trabajo actual", example=10)
+    social_media_hours: int = Field(..., description="Horas diarias en redes sociales", example=3)
+
+
 
 # Modelo de Datos de Salida
 class PredictionOutput(BaseModel):
