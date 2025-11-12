@@ -31,15 +31,12 @@ def entrenar_modelo_al_inicio(file_path: str) -> dict:
     # 1) Definir columnas base y el target
     target_col = "intended_vote"
     base_cols = [
-        "age",                      # continua
-        "job_tenure_years",         # continua
-        "social_media_hours",       # continua
+        "primary_choice",           # nominal
         "public_sector",            # ordinal
         "gender",                   # ordinal 
-        "trust_media",              # ordinal 
-        "civic_participation",      # ordinal/frecuencia
-        "primary_choice",           # nominal (texto)
-        "secondary_choice",         # nominal (texto)
+        "job_tenure_years",         # continua
+        "social_media_hours",
+        "undecided",
     ]
 
     # 2) Filtramos el target utilizable
@@ -47,9 +44,9 @@ def entrenar_modelo_al_inicio(file_path: str) -> dict:
     df = df[df[target_col] != "Undecided"]
 
     # 3) Definir tipos por bloque para preprocesamiento
-    continuas = ["age", "job_tenure_years", "social_media_hours"]
-    ordinales = ["public_sector", "gender", "trust_media", "civic_participation"]
-    nominales_texto = ["primary_choice", "secondary_choice"]
+    continuas = ["job_tenure_years", "social_media_hours"]
+    ordinales = ["public_sector", "gender", "undecided"]
+    nominales_texto = ["primary_choice"]
 
     # 4) Construir X/y
     X = df[base_cols].copy()
