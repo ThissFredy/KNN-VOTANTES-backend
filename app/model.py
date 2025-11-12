@@ -1,8 +1,28 @@
 import pandas as pd
 import numpy as np
-from collections import Counter
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, f1_score
+
+class Counter:
+    """Contador mínimo con un método most_common(n) similar al de collections.Counter."""
+    def __init__(self, iterable=None):
+        self.counts = {}
+        self._order = []
+        if iterable:
+            for item in iterable:
+                if item not in self.counts:
+                    self.counts[item] = 0
+                    self._order.append(item)
+                self.counts[item] += 1
+
+    def most_common(self, n=None):
+        # Ordena por frecuencia descendente; en empates respeta el orden de primera aparición.
+        order_index = {v: i for i, v in enumerate(self._order)}
+        items = list(self.counts.items())
+        items.sort(key=lambda x: (-x[1], order_index.get(x[0], 0)))
+        if n is None:
+            return items
+        return items[:n]
 
 def calcular_distancia_euclidiana(punto_a, punto_b):
     """Calcula la distancia euclidiana entre dos puntos (vectores NumPy)."""
