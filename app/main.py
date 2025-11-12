@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 import numpy as np
 import pandas as pd
 from contextlib import asynccontextmanager
-# (Asegúrate que 'model_logic.py' esté en la misma carpeta 'app')
+from typing import List
 from app.model import entrenar_modelo_al_inicio, predecir_votante
 
 # --- Variable Global para el Modelo ---
