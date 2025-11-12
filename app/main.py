@@ -151,7 +151,22 @@ async def predict(data: VoterInput):
         )
         
         prediction_label = target_map.get(prediction_class, "Candidato Desconocido")
+
+        data_to_save = input_data.copy()
+        data_to_save["intended_vote"] = prediction_label
+
+        actual_data = pd.read_csv("data/voter_intentions_COMPLETED.csv")
+        actual_data = pd.concat(
+            [actual_data, pd.DataFrame([data_to_save])], ignore_index=True
+        )
         
+        actual_data.to_csv("data/voter_intentions_COMPLETED.csv", index=False)
+
+        # 5. Actualizar modelo en MEMORIA (para la siguiente petición)
+        model_artifacts["X_train"] = np.vstack([X_train, votante_np])
+        model_artifacts["y_train"] = np.append(y_train, prediction_class)
+        print(f"Modelo actualizado. Nuevo tamaño: {len(model_artifacts['y_train'])}")
+
         # --- 5. Devolver la respuesta ---
         return PredictionOutput(
             predicted_class=int(prediction_class),

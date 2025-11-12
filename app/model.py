@@ -84,7 +84,7 @@ def entrenar_modelo_al_inicio(file_path: str) -> dict:
         X_df, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # Convertir a NumPy para la función manual
+    # Convertir a NumPy
     X_train_np = X_train_df.values
     X_test_np = X_test_df.values
 
