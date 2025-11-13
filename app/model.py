@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 import joblib
+from .api.migration import get_csv_from_postgresql
 
 class Counter:
     """Contador mínimo con un método most_common(n) similar al de collections.Counter."""
@@ -50,17 +51,19 @@ def predecir_votante(X_entrenamiento, y_entrenamiento, nuevo_votante, k=19):
 
 
 # --- Entrenamiento del Modelo al Inicio ---
-def entrenar_modelo_al_inicio(file_path: str) -> dict:
+def entrenar_modelo_al_inicio() -> dict:
     """
     Carga los datos YA PROCESADOS, los separa y "entrena" el modelo k-NN.
     "Entrenar" es solo guardar los datos de entrenamiento.
     """
-    print(f"Iniciando carga desde el dataset PROCESADO: {file_path}...")
+    print(f"Iniciando carga desde base de datos PostgreSQL...")
     try:
-        df = pd.read_csv(file_path)
+        df = get_csv_from_postgresql()
+        if "error" in df:
+            return df  # Retorna el error
     except FileNotFoundError:
-        print(f"ERROR: No se encontró el archivo {file_path}")
-        return {"error": f"No se encontró {file_path}"}
+        return {"error": f"No se hallaron los datos en la base de datos PostgreSQL."}
+    
     live_preprocessor = joblib.load("data/final_preprocessor.joblib")
     
     # 1) Definir X (features) e y (target)

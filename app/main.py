@@ -7,6 +7,7 @@ import pandas as pd
 from contextlib import asynccontextmanager
 from typing import List
 from app.model import entrenar_modelo_al_inicio, predecir_votante
+from .api.migration import get_csv_from_postgresql, add_value_to_postgresql
 
 model_artifacts = {}
 
@@ -16,7 +17,6 @@ async def lifespan(app: FastAPI):
     global model_artifacts
     try:
         model_artifacts = entrenar_modelo_al_inicio(
-            file_path="data/voter_intentions_COMPLETED.csv"
         )
         
         if "error" in model_artifacts:
@@ -153,9 +153,9 @@ async def predict(data: VoterInput):
         processed_row_df = pd.DataFrame([votante_np], columns=feature_cols)
         processed_row_df["intended_vote"] = prediction_label
 
-        actual_data = pd.read_csv("data/voter_intentions_COMPLETED.csv")
+        actual_data = get_csv_from_postgresql()
         actual_data = pd.concat([actual_data, processed_row_df], ignore_index=True)
-        actual_data.to_csv("data/voter_intentions_COMPLETED.csv", index=False)
+        add_value_to_postgresql(processed_row_df.iloc[-1].to_dict())
 
         model_artifacts["X_train"] = np.vstack([X_train, votante_processed_arr])
         model_artifacts["y_train"] = np.append(y_train, prediction_class)
