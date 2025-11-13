@@ -48,48 +48,45 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"], 
 )
 
 # --- Modelos de Datos (Pydantic) ---
 class VoterInput(BaseModel):
+    # continuas
+    age: int = Field(..., example=35)
+    household_size: int = Field(..., example=3)
+    refused_count: int = Field(..., example=0)
+    tv_news_hours: int = Field(..., example=10)
+    social_media_hours: int = Field(..., example=5)
+    job_tenure_years: int = Field(..., example=4)
+
+
     # Asumo que tu script les puso prefijo 'ord__'
-    ord__has_children: float = Field(..., example=1.0)
-    ord__home_owner: float = Field(..., example=0.0)
-    ord__public_sector: float = Field(..., example=1.0)
-    ord__union_member: float = Field(..., example=0.0)
-    
-    # Asumo prefijo 'nom__' y 10 candidatos para 'primary_choice'
-    nom__primary_choice_CAND_Azon: float = Field(..., example=1.0)
-    nom__primary_choice_CAND_Boreal: float = Field(..., example=0.0)
-    nom__primary_choice_CAND_Civico: float = Field(..., example=0.0)
-    nom__primary_choice_CAND_Demetra: float = Field(..., example=0.0)
-    nom__primary_choice_CAND_Electra: float = Field(..., example=0.0)
-    nom__primary_choice_CAND_Frontera: float = Field(..., example=0.0)
-    nom__primary_choice_CAND_Gaia: float = Field(..., example=0.0)
-    nom__primary_choice_CAND_Halley: float = Field(..., example=0.0)
-    nom__primary_choice_CAND_Icaro: float = Field(..., example=0.0)
-    nom__primary_choice_CAND_Jade: float = Field(..., example=0.0)
-        
-    class Config:
-        schema_extra = {
-            "example": {
-                "ord__has_children": 1.0,
-                "ord__home_owner": 0.0,
-                "ord__public_sector": 1.0,
-                "ord__union_member": 0.0,
-                "nom__primary_choice_CAND_Azon": 0.0,
-                "nom__primary_choice_CAND_Boreal": 0.0,
-                "nom__primary_choice_CAND_Civico": 0.0,
-                "nom__primary_choice_CAND_Demetra": 0.0,
-                "nom__primary_choice_CAND_Electra": 0.0,
-                "nom__primary_choice_CAND_Frontera": 0.0,
-                "nom__primary_choice_CAND_Gaia": 1.0,
-                "nom__primary_choice_CAND_Halley": 0.0,
-                "nom__primary_choice_CAND_Icaro": 0.0,
-                "nom__primary_choice_CAND_Jade": 0.0
-            }
-        }
+    has_children: int = Field(..., example=1.0)
+    gender: int = Field(..., example=1.0)
+    urbanicity: int = Field(..., example=1.0)
+    education: int = Field(..., example=5.0)
+    employment_status: int = Field(..., example=5.0)
+    income_bracket: int = Field(..., example=5.0)
+    employment_sector: int = Field(..., example=2.0)
+    marital_status: int = Field(..., example=2.0)
+    small_biz_owner: int = Field(..., example=0.0)
+    owns_car: int = Field(..., example=0.0)
+    preference_strength: int = Field(..., example=8.0)
+    survey_confidence: int = Field(..., example=8.0)
+    trust_media: int = Field(..., example=5.0)
+    civic_participation: int = Field(..., example=4.0)
+    wa_groups: int = Field(..., example=1.0)
+    voted_last: int = Field(..., example=1.0)
+    home_owner: int = Field(..., example=0.0)
+    attention_check: int = Field(..., example=1.0)
+    public_sector: int = Field(..., example=1.0)
+    party_id_strength: int = Field(..., example=2.0)
+    union_member: int = Field(..., example=0.0)
+
+    primary_choice: str = Field(..., example="CAND_Gaia")
+    secondary_choice: str = Field(..., example="CAND_Azon")
 
 # Modelo de Datos de Salida
 class PredictionOutput(BaseModel):
@@ -121,53 +118,48 @@ async def predict(data: VoterInput):
     if "error" in model_artifacts:
         raise HTTPException(status_code=503, detail=f"El modelo no pudo cargar: {model_artifacts['error']}")
     
-    # 1. Validar que los artefactos NUEVOS estén cargados
     X_train = model_artifacts.get("X_train")
     y_train = model_artifacts.get("y_train")
     target_map = model_artifacts.get("target_map")
+    preprocessor = model_artifacts.get("live_preprocessor")
     
-    feature_cols = model_artifacts.get("feature_cols") # La lista de columnas procesadas
+    feature_cols = model_artifacts.get("feature_cols")
     
     if not all([X_train is not None, y_train is not None, target_map, feature_cols]):
-         raise HTTPException(status_code=503, detail="El modelo o sus artefactos no están listos.")
+        raise HTTPException(status_code=503, detail="El modelo o sus artefactos no están listos.")
 
     try:
-        # --- Preparar datos de entrada ---
-        
         input_data = data.model_dump() if hasattr(data, 'model_dump') else data.dict()
+
         votante_df = pd.DataFrame([input_data])
-        votante_df_ordered = votante_df[feature_cols]
         
+        votante_processed_arr = preprocessor.transform(votante_df)
 
-        votante_np = votante_df_ordered.values[0]
+        # Obtener vector 1D para la predicción
+        votante_np = np.asarray(votante_processed_arr).reshape(votante_processed_arr.shape[0], -1)[0]
 
-
+        print(f"Datos del votante procesados para predicción: {votante_np}")
 
         prediction_class, prediction_confidence = predecir_votante(
             X_entrenamiento=X_train,
             y_entrenamiento=y_train,
             nuevo_votante=votante_np,
-            k=8 
+            k=19
         )
         
         prediction_label = target_map.get(prediction_class, "Candidato Desconocido")
 
-        data_to_save = input_data.copy()
-        data_to_save["intended_vote"] = prediction_label
+
+        processed_row_df = pd.DataFrame([votante_np], columns=feature_cols)
+        processed_row_df["intended_vote"] = prediction_label
 
         actual_data = pd.read_csv("data/voter_intentions_COMPLETED.csv")
-        actual_data = pd.concat(
-            [actual_data, pd.DataFrame([data_to_save])], ignore_index=True
-        )
-        
+        actual_data = pd.concat([actual_data, processed_row_df], ignore_index=True)
         actual_data.to_csv("data/voter_intentions_COMPLETED.csv", index=False)
 
-        # 5. Actualizar modelo en MEMORIA (para la siguiente petición)
-        model_artifacts["X_train"] = np.vstack([X_train, votante_np])
+        model_artifacts["X_train"] = np.vstack([X_train, votante_processed_arr])
         model_artifacts["y_train"] = np.append(y_train, prediction_class)
-        print(f"Modelo actualizado. Nuevo tamaño: {len(model_artifacts['y_train'])}")
 
-        # --- 5. Devolver la respuesta ---
         return PredictionOutput(
             predicted_class=int(prediction_class),
             predicted_candidate=prediction_label,

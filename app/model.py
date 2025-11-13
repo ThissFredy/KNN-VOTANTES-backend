@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, f1_score
+import joblib
 
 class Counter:
     """Contador mínimo con un método most_common(n) similar al de collections.Counter."""
@@ -28,7 +29,7 @@ def calcular_distancia_euclidiana(punto_a, punto_b):
     """Calcula la distancia euclidiana entre dos puntos (vectores NumPy)."""
     return np.sqrt(np.sum((punto_a - punto_b)**2))
 
-def predecir_votante(X_entrenamiento, y_entrenamiento, nuevo_votante, k=8):
+def predecir_votante(X_entrenamiento, y_entrenamiento, nuevo_votante, k=19):
     """
     Predice la clase de un nuevo votante usando k-NN manual.
     Espera que X_entrenamiento y nuevo_votante sean arrays de NumPy.
@@ -60,6 +61,7 @@ def entrenar_modelo_al_inicio(file_path: str) -> dict:
     except FileNotFoundError:
         print(f"ERROR: No se encontró el archivo {file_path}")
         return {"error": f"No se encontró {file_path}"}
+    live_preprocessor = joblib.load("data/final_preprocessor.joblib")
     
     # 1) Definir X (features) e y (target)
     target_col = "intended_vote"
@@ -92,14 +94,14 @@ def entrenar_modelo_al_inicio(file_path: str) -> dict:
     print("Iniciando evaluación del modelo KNN manual sobre datos procesados...")
     preds, confs = [], []
     for fila in X_test_np:
-        p, c = predecir_votante(X_train_np, y_train, fila, k=8)
+        p, c = predecir_votante(X_train_np, y_train, fila, k=19)
         preds.append(p); confs.append(c)
 
     # Métricas
     acc = accuracy_score(y_test, preds)
     f1_macro = f1_score(y_test, preds, average='macro', zero_division=0)
     
-    print(f"\n--- Reporte de Evaluación (k=8, datos procesados) ---")
+    print(f"\n--- Reporte de Evaluación (k=19, datos procesados) ---")
     print(f"Accuracy: {acc*100:.2f}%")
     print(f"F1-score (macro): {f1_macro:.4f}")
     
@@ -118,5 +120,6 @@ def entrenar_modelo_al_inicio(file_path: str) -> dict:
         "metrics": {
             "accuracy": acc,
             "f1_score_macro": f1_macro,
-        }
+        },
+        "live_preprocessor": live_preprocessor
     }
