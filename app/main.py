@@ -61,8 +61,6 @@ class VoterInput(BaseModel):
     social_media_hours: int = Field(..., example=5)
     job_tenure_years: int = Field(..., example=4)
 
-
-    # Asumo que tu script les puso prefijo 'ord__'
     has_children: int = Field(..., example=1.0)
     gender: int = Field(..., example=1.0)
     urbanicity: int = Field(..., example=1.0)
@@ -127,7 +125,6 @@ async def predict(data: VoterInput):
     
     if not all([X_train is not None, y_train is not None, target_map, feature_cols]):
         raise HTTPException(status_code=503, detail="El modelo o sus artefactos no están listos.")
-
     try:
         input_data = data.model_dump() if hasattr(data, 'model_dump') else data.dict()
 

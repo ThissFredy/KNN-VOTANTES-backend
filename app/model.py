@@ -68,10 +68,6 @@ def entrenar_modelo_al_inicio() -> dict:
     
     # 1) Definir X (features) e y (target)
     target_col = "intended_vote"
-    
-    if target_col not in df.columns:
-        print(f"ERROR: El target '{target_col}' no está en el CSV.")
-        return {"error": f"El target '{target_col}' no está en el CSV."}
 
     # X sin target
     X_df = df.drop(columns=[target_col])
@@ -82,7 +78,8 @@ def entrenar_modelo_al_inicio() -> dict:
     # Hallar y (y convertir a códigos numéricos)
     y_labels = df[target_col].astype("category")
     target_map = dict(enumerate(y_labels.cat.categories))
-    y = y_labels.cat.codes.values # y (array de numpy con los códigos: 0, 1, 2...)
+
+    y = y_labels.cat.codes.values
 
     # Separar los datos para evaluación
     X_train_df, X_test_df, y_train, y_test = train_test_split(

@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 import os
 import pandas as pd
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_URL = "postgresql://dbknn_user:igFQK4dT73A0sN13sYdr9iacbqh0zbUa@dpg-d4a9hfbipnbc739gsrpg-a.oregon-postgres.render.com/dbknn"
 
 
 
@@ -102,3 +102,5 @@ def consultar_datos_postgresql():
         print(e)
 
     return df
+
+migrate_csv_to_postgresql()
