@@ -201,10 +201,10 @@ class HealthCheckResponse(BaseModel):
 class ServicesStatus(BaseModel):
     database: HealthCheckResponse
 # Health Check Endpoint (BACKEND)
-@app.get("/health", response_model=ServicesStatus, tags=["Información de los Servicios"])
+@app.get("/health/db", response_model=ServicesStatus, tags=["Información de los Servicios"])
 async def health_check():
     """
-    Verifica el estado de salud del backend y de la base de datos.
+    Verifica el estado de salud de la base de datos.
     """
     db_status = consultar_estado_postgresql()
     if (not db_status):
@@ -222,3 +222,28 @@ async def health_check():
     
 
     return ServicesStatus(database=responseDb)
+
+
+class HealthCheckBackResponse(BaseModel):
+    status: bool
+    detail: str = None
+
+class ServicesBackStatus(BaseModel):
+    backend: HealthCheckBackResponse
+
+@app.get("/health/backend", response_model=ServicesBackStatus, tags=["Información de los Servicios"])
+
+async def health_check_back():
+    """
+    Verifica el estado de salud de la base de datos.
+    """
+    
+    responseBack = HealthCheckBackResponse(
+        status=True,
+        detail="El Backend esta disponible."
+    )
+    
+    
+
+    return ServicesBackStatus(backend=responseBack)
+
