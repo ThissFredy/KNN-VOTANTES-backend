@@ -103,4 +103,15 @@ def consultar_datos_postgresql():
 
     return df
 
-migrate_csv_to_postgresql()
+def consultar_estado_postgresql():
+    try:
+        engine = create_engine(f"{DATABASE_URL}?sslmode=require")
+        with engine.connect() as connection:
+            response = pd.read_sql("SELECT 1", connection)
+        return True
+    except Exception as e:
+        print(f"Ocurrió un error al conectar a la base de datos:")
+        print(e)
+        return False
+    
+consultar_estado_postgresql()

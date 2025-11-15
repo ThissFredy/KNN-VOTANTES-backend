@@ -2,11 +2,66 @@
 
 ## Implementación Manual de k-NN para Predicción de Voto Electoral
 
+<div align="center" style="margin:16px 0;">
+  <div style="display:inline-flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;
+              background:#f6f8fa;border:1px solid #e1e4e8;box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+    <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+         alt="GitHub" width="40" height="40" style="flex:0 0 40px;">
+    <div style="text-align:left;">
+      <div style="font-weight:700;font-size:1.05rem;color:#24292f;">
+        <a href="https://github.com/ThissFredy/KNN-VOTANTES-backend.git" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">
+          KNN-VOTANTES-backend
+        </a>
+      </div>
+      <div style="color:#57606a;font-size:0.9rem;">
+        Repositorio · API k‑NN de intención de voto
+      </div>
+    </div>
+  </div>
+</div>
+<div align="center" style="margin:16px 0;">
+  <div style="display:inline-flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;
+              background:#f6f8fa;border:1px solid #e1e4e8;box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+    <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+         alt="GitHub" width="40" height="40" style="flex:0 0 40px;">
+    <div style="text-align:left;">
+      <div style="font-weight:700;font-size:1.05rem;color:#24292f;">
+        <a href="https://github.com/ThissFredy/knn-votantes-frontend.git" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">
+          knn-votantes-frontend
+        </a>
+      </div>
+      <div style="color:#57606a;font-size:0.9rem;">
+        Repositorio · API k‑NN de intención de voto
+      </div>
+    </div>
+  </div>
+</div>
+
+<div align="center" style="margin:16px 0;">
+  <div style="display:inline-flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;
+              background:#f6f8fa;border:1px solid #e1e4e8;box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+    <img src="https://colab.research.google.com/img/colab_favicon_256px.png"
+         alt="GitHub" width="40" height="40" style="flex:0 0 40px;">
+    <div style="text-align:left;">
+      <div style="font-weight:700;font-size:1.05rem;color:#24292f;">
+        <a href="https://colab.research.google.com/drive/1HeS-y8HrfYeNbaTmXbrkJq6UfNb650ry?usp=sharing" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">
+          MODELO-KNN-VOTANTES
+        </a>
+      </div>
+      <div style="color:#57606a;font-size:0.9rem;">
+        Notebook · Implementación Manual de k-NN
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 ---
 
 **Curso:** Machine Learning  
 **Programa:** Ingeniería en Sistemas y Computación  
-**Objetivo:** Implementar desde cero el algoritmo k-NN para predecir preferencias electorales
+**Integrantes:** Fredy Alejandro Zarate, Juan David Rodriguez
 
 ## 1. Resumen Ejecutivo
 

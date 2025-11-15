@@ -7,7 +7,7 @@ import pandas as pd
 from contextlib import asynccontextmanager
 from typing import List
 from app.model import entrenar_modelo_al_inicio, predecir_votante
-from .api.migration import get_csv_from_postgresql, add_value_to_postgresql
+from .api.migration import get_csv_from_postgresql, add_value_to_postgresql, consultar_estado_postgresql
 
 model_artifacts = {}
 
@@ -40,15 +40,20 @@ app = FastAPI(
 )
 
 allowed_origins = [
-    "http://localhost", "http://localhost:3000",
+    "http://localhost",
+    "http://localhost:8000",
+    "http://localhost:3000",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:3000",
     "https://knn-votantes-frontend.onrender.com"
 ]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"], 
+    allow_headers=["*"],
 )
 
 # --- Modelos de Datos (Pydantic) ---
@@ -186,3 +191,34 @@ async def get_available_candidates():
     list_of_candidates.sort(key=lambda x: x["code"])
 
     return {"candidates": list_of_candidates}
+
+
+
+class HealthCheckResponse(BaseModel):
+    status: bool
+    detail: str = None
+
+class ServicesStatus(BaseModel):
+    database: HealthCheckResponse
+# Health Check Endpoint (BACKEND)
+@app.get("/health", response_model=ServicesStatus, tags=["Información de los Servicios"])
+async def health_check():
+    """
+    Verifica el estado de salud del backend y de la base de datos.
+    """
+    db_status = consultar_estado_postgresql()
+    if (not db_status):
+        responseDb = HealthCheckResponse(
+            status=False,
+            detail="La base de datos PostgreSQL no está disponible."
+        )
+        return ServicesStatus(database=responseDb)
+    
+    responseDb = HealthCheckResponse(
+        status=True,
+        detail="La base de datos PostgreSQL está disponible."
+    )
+    
+    
+
+    return ServicesStatus(database=responseDb)
