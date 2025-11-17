@@ -350,6 +350,17 @@ y = y_labels.cat.codes.values
 
 ## 5. Decisiones de Diseño
 
+### Formulas usadas
+
+- **Precision**
+$$Precision = \frac{TP}{TP + FP}$$
+
+- **Recall**
+$$Recall = \frac{TP}{TP + FN}$$
+
+- **F1 Score**
+$$F1 = 2 \cdot \frac{Precision \cdot Recall}{Precision + Recall}$$
+
 ### 5.1 ¿Por Qué Distancia Euclidiana?
 
 #### Problema Fundamental sin Escalado
