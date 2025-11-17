@@ -237,6 +237,27 @@ El dataset presenta un **desbalance moderado** entre candidatos:
 
 **Implicación:** El uso de `stratify=y` en `train_test_split` asegura que Train y Test mantengan esta distribución.
 
+### 4.3 Justificación del Preprocesamiento Categórico
+
+Una de las decisiones de diseño más críticas en este proyecto fue cómo manejar el gran número de variables categóricas (como `gender`, `employment_status`, `region`, etc.).
+
+**El Dilema: Pureza Teórica vs. Rendimiento Práctico**
+
+1.  **El Enfoque Teórico (Puro):** Teóricamente, la mayoría de las 20 variables agrupadas en la lista `ordinales` (ej. `gender`, `marital_status`, `region`) son **nominales**. El método más puro para un modelo k-NN es aplicarles **One-Hot Encoding (OHE)**. Esto evita crear distancias falsas.
+
+2.  **El Problema Práctico (La Maldición de la Dimensionalidad):** Si aplicáramos OHE a estas 20 variables, el número de *features* (dimensiones) se dispararía, pasando de 46 a, potencialmente, más de 100. Para un modelo basado en distancias como k-NN, un aumento tan drástico de la dimensionalidad es catastrófico. El espacio de características se vuelve disperso, la noción de "vecino cercano" pierde sentido y el ruido puede dominar la señal.
+
+**Nuestra Decisión Metodológica (Basada en Evidencia)**
+
+Decidimos tomar un enfoque práctico, justificado por los resultados de la **permutación por importancia** de las *features*:
+
+* **Variables de Alta Importancia:** Los resultados demuestran que `primary_choice` (importancia: **0.8069**) es, por un margen abrumador, la variable más predictiva. Era **crítico** codificarla perfectamente. Por lo tanto, esta variable (junto con `secondary_choice`) **sí** fue tratada con OHE.
+
+* **Variables de Baja Importancia:** El resto de las variables categóricas en disputa (como `gender`: 0.0028, `marital_status`: 0.0037, `region`: -0.0027) mostraron una importancia **casi nula** o incluso negativa (ruido).
+
+Basado en esta evidencia, se tomó la decisión metodológica de **NO** aplicar OHE a las variables categóricas de baja importancia. En su lugar, se agruparon en la lista de `ordinales` y se trataron como un solo valor numérico, escalándolas con `MinMaxScaler`.
+
+**Asumimos conscientemente el error teórico** que esto introduce la creación de "distancias falsas". Este error se justifica porque es un costo mucho menor comparado con el efecto destructivo de la maldición de la dimensionalidad que resultaría de añadir docenas de columnas de ruido al modelo.
 ### 4.3 One Hot Encoding de Variables Nominales
 
 **Variables nominales:** `primary_choice`, `secondary_choice`
@@ -412,3 +433,46 @@ Donde:
 2. **Demostración de conocimiento**: Probar capacidad de implementar desde cero
 3. **Transparencia**: Poder inspeccionar y explicar cada decisión del modelo
 4. **Control total**: Modificar cualquier aspecto (métrica, votación, pesos)
+
+### 5.5 Importancia de Características (Permutation Importance)
+
+Para validar la arquitectura del modelo y entender qué variables *realmente* impulsan la predicción, se realizó un análisis de **Permutation Importance**. Esta técnica mide cuánto cae el F1-Score del modelo si "barajamos" (permutamos) aleatoriamente el valor de una sola variable, rompiendo su relación con el *target*.
+
+**Una alta caída en el score significa que la variable es muy importante.**
+
+Los resultados demuestran de manera contundente la estrategia de preprocesamiento:
+
+| Variable | Importancia (Caída en F1-Macro) |
+| :--- | :--- |
+| **primary\_choice** | **0.806953** |
+| voted\_last | 0.010764 |
+| social\_media\_hours | 0.009649 |
+| household\_size | 0.006344 |
+| refused\_count | 0.006294 |
+| survey\_confidence | 0.006047 |
+| employment\_status | 0.005821 |
+| job\_tenure\_years | 0.005048 |
+| tv\_news\_hours | 0.004975 |
+| attention\_check | 0.004907 |
+| preference\_strength | 0.004628 |
+| home\_owner | 0.004496 |
+| small\_biz\_owner | 0.004365 |
+| civic\_participation | 0.004119 |
+| marital\_status | 0.003781 |
+| party\_id\_strength | 0.003752 |
+| age | 0.003389 |
+| gender | 0.002840 |
+| wa\_groups | 0.002471 |
+| trust\_media | 0.001957 |
+| has\_children | 0.001862 |
+| public\_sector | 0.001735 |
+| education | 0.001670 |
+| union\_member | 0.001658 |
+| income\_bracket | 0.000750 |
+| secondary\_choice | 0.000308 |
+| owns\_car | 0.000182 |
+| employment\_sector | 0.000073 |
+| undecided | 0.000000 |
+| urbanicity | -0.001058 |
+| will\_turnout | -0.002598 |
+| region | -0.002770 |

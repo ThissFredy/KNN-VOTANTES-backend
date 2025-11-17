@@ -37,7 +37,7 @@ ordinales = [
     "preference_strength", "survey_confidence", "trust_media", 
     "civic_participation"
 ]
-nominales_texto = ["primary_choice", "secondary_choice"]
+nominales = ["primary_choice", "secondary_choice", ]
 
 print(f"\n[Paso 3/8] Dividiendo el dataset (Total: {len(df)} filas)...")
 df_known = df[df[target_col] != "Undecided"].copy()
@@ -71,7 +71,7 @@ pipe_nom  = Pipeline([
 preprocessor = ColumnTransformer([
     ("cont", pipe_cont, continuas),
     ("ord",  pipe_ord,  ordinales),
-    ("nom",  pipe_nom,  nominales_texto),
+    ("nom",  pipe_nom,  nominales),
 ], remainder="drop")
 
 # === 5) Entrenamiento de k-NN y Predicción de Indecisos ===
@@ -175,7 +175,7 @@ positive_features = pi_group[pi_group["importance_mean"] > 0]["base"].tolist()
 # Separamos las features positivas por tipo
 final_cont = [col for col in continuas if col in positive_features]
 final_ord  = [col for col in ordinales if col in positive_features]
-final_nom  = [col for col in nominales_texto if col in positive_features]
+final_nom  = [col for col in nominales if col in positive_features]
 
 # Creamos el preprocesador final
 # Usamos 'passthrough' para las features que no son OHE
