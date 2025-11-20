@@ -200,7 +200,7 @@ class HealthCheckResponse(BaseModel):
 
 class ServicesStatus(BaseModel):
     database: HealthCheckResponse
-# Health Check Endpoint (BACKEND)
+# Health Check Endpoint
 @app.get("/health/db", response_model=ServicesStatus, tags=["Información de los Servicios"])
 async def health_check():
     """
